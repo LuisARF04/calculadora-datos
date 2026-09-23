@@ -70,6 +70,7 @@ fi
 ( cd android
   yes | sdkmanager --licenses > /dev/null || true
   sed -i "s/versionCode 1\$/versionCode ${GITHUB_RUN_NUMBER:-1}/" app/build.gradle || true
+  sed -i 's/versionName "1.0"/versionName "1.1"/' app/build.gradle || true
   chmod +x gradlew
   ./gradlew assembleRelease --no-daemon )
 

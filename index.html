@@ -433,17 +433,11 @@
             <div class="error-msg" id="err-peso"></div>
           </div>
 
-          <!-- Tasa del dólar en CUP (la escribe el usuario) -->
-          <div class="field">
-            <label for="tasa">Tasa del dólar en CUP</label>
-            <div class="input-wrap has-suffix">
-              <input type="text" id="tasa" inputmode="decimal" autocomplete="off" placeholder="Ej.: 710" />
-              <span class="affix suffix">CUP</span>
-            </div>
-            <div class="hint" id="estadoDatos">Opcional: si la escribes, se muestra el total también en CUP.</div>
-            <div class="error-msg" id="err-tasa"></div>
-
-          </div>
+          <!-- Tasa del dólar en CUP: la fija el administrador, no se edita aquí.
+               Se sigue mostrando debajo del total final del producto y del carrito. -->
+          <input type="hidden" id="tasa" />
+          <p class="hint" id="estadoDatos" style="display:none"></p>
+          <p class="error-msg" id="err-tasa" style="display:none"></p>
 
           <div class="actions">
             <button type="button" class="btn btn-primary" id="btnCalcular">Calcular total</button>
@@ -1392,8 +1386,19 @@ function validarCatalogo(o) {
  *  2) lo escrito es parte del nombre de UN solo producto (si es una palabra suelta de la tabla, como "ventilador", no cuenta).
  */
 function buscarProductoTienda(texto) {
+  if (!catalogo.productos.length) return null;
+  const claveDe = (s) => palabrasClave(s).slice().sort().join(" ");
+  const claveTexto = claveDe(texto);
+
+  // Coincidencia exacta (mismas palabras, sin importar mayúsculas, acentos, plurales u orden):
+  // gana siempre, incluso si el nombre también coincide parcialmente con otros productos.
+  if (claveTexto) {
+    const exacto = catalogo.productos.find((p) => claveDe(p.nombre) === claveTexto);
+    if (exacto) return exacto;
+  }
+
   const t = new Set(palabrasClave(texto));
-  if (!t.size || !catalogo.productos.length) return null;
+  if (!t.size) return null;
   let mejor = null;
   for (const p of catalogo.productos) {
     const pk = palabrasClave(p.nombre);
