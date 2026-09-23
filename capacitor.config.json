@@ -1,0 +1,7 @@
+{
+  "appId": "com.calculadora.importacion",
+  "appName": "Calculadora",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "backgroundColor": "#f5f7fa" }
+}

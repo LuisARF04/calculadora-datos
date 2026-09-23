@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Calculadora de importación</title>
+
+  <!-- ===== App instalable (PWA) ===== -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Importación" />
+  <meta name="description" content="Calcula descuento, impuesto, costo por peso y total final de cualquier artículo." />
+
+  <!-- Tipografía: Inter (con alternativas del sistema si no hay conexión) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* =====================================================
+       1. VARIABLES DE DISEÑO
+       ===================================================== */
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff4ff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --success: #059669;
+      --success-soft: #ecfdf5;
+      --warning: #b45309;
+      --warning-soft: #fffbeb;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .06);
+      --font: "Inter", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    /* =====================================================
+       2. BASE
+       ===================================================== */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root { box-sizing: border-box; padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)); padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)); }
+    html { scroll-padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)); }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+    /* Cabecera */
+    .topbar { background: var(--card); border-bottom: 1px solid var(--border); }
+    .topbar .container { display: flex; align-items: center; gap: 12px; height: 64px; }
+    .logo {
+      width: 34px; height: 34px; border-radius: 10px; background: var(--primary);
+      display: grid; place-items: center; color: #fff;
+    }
+    .topbar strong { font-size: 1.05rem; letter-spacing: -.01em; }
+    .topbar span { color: var(--text-muted); font-size: .9rem; margin-left: auto; }
+
+    /* Botón-casilla del carrito (esquina derecha de la barra) */
+    .top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .cart-btn {
+      position: relative; display: inline-flex; align-items: center; gap: 8px;
+      height: 40px; padding: 0 12px; border-radius: 10px; cursor: pointer;
+      border: 1.5px solid var(--border); background: #fff; color: var(--text);
+      font: inherit; font-size: .88rem; font-weight: 600;
+      transition: background .2s, border-color .2s, color .2s, transform .15s;
+    }
+    .cart-btn:hover { background: #f1f5f9; }
+    .cart-btn:active { transform: scale(.97); }
+    .cart-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .cart-btn:focus-visible { outline: 3px solid rgba(37,99,235,.4); outline-offset: 2px; }
+    .cart-btn .txt { display: none; }
+    @media (min-width: 480px) { .cart-btn .txt { display: inline; } }
+    .cart-count {
+      position: absolute; top: -7px; right: -7px; min-width: 19px; height: 19px; padding: 0 5px;
+      border-radius: 99px; background: var(--text); color: #fff; font-size: .7rem; font-weight: 700;
+      display: none; place-items: center; border: 2px solid #fff; box-sizing: content-box;
+    }
+    .cart-count.show { display: grid; }
+
+    /* Ventana de ajustes */
+    .modal {
+      position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+      padding: 20px; background: rgba(15, 23, 42, .45); animation: aparecer .25s;
+    }
+    .modal[hidden] { display: none; }
+    .modal .card { width: 100%; max-width: 420px; max-height: 100%; overflow: auto; }
+    .modal .actions { margin-top: 4px; }
+
+    /* Panel de administración */
+    .btn-small { padding: 10px 14px; font-size: .9rem; }
+    .btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: #f1f5f9; }
+    .sec { margin: 22px 0 10px; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .fila2 { display: grid; grid-template-columns: 1fr 110px; gap: 12px; }
+    .prod-list { list-style: none; margin: 0 0 12px; padding: 0; }
+    .prod-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .prod-item .n { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+    .prod-item .l { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .modal-actions { display: grid; gap: 10px; margin-top: 18px; }
+
+    /* Lista del carrito */
+    .cart-list { list-style: none; margin: 0 0 8px; padding: 0; }
+    .cart-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .cart-item .info { flex: 1; min-width: 0; }
+    .cart-item .info strong { display: block; overflow-wrap: anywhere; }
+    .cart-item small { color: var(--text-muted); font-size: .8rem; }
+    .cart-item .sub-total { font-weight: 700; font-variant-numeric: tabular-nums; flex: none; white-space: nowrap; }
+    .cart-del {
+      flex: none; width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent;
+      color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; transition: background .2s, color .2s;
+    }
+    .cart-del:hover { background: var(--danger-soft); color: var(--danger); }
+    .cart-del:focus-visible { outline: 3px solid rgba(37,99,235,.4); }
+    .cart-summary { margin-top: 8px; }
+
+    main { padding: 40px 0 64px; }
+    .intro h1 { margin: 0 0 24px; font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: -.025em; }
+    .intro p { margin: 0 0 28px; color: var(--text-muted); max-width: 60ch; }
+
+    /* Disposición en dos columnas (una sola en móvil) */
+    .layout { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
+    @media (min-width: 900px) { .layout { grid-template-columns: 1fr 1fr; } }
+
+    /* =====================================================
+       3. TARJETAS
+       ===================================================== */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+    .card h2 { margin: 0 0 4px; font-size: 1.15rem; letter-spacing: -.01em; }
+    .card .sub { margin: 0 0 22px; color: var(--text-muted); font-size: .92rem; }
+
+    /* =====================================================
+       4. FORMULARIO
+       ===================================================== */
+    .field { margin-bottom: 18px; }
+    .field label, .label {
+      display: block; font-size: .88rem; font-weight: 600; margin-bottom: 6px;
+    }
+    .hint { font-size: .8rem; color: var(--text-muted); margin-top: 6px; }
+
+    .input-wrap { position: relative; }
+    .input-wrap .affix {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: .92rem; pointer-events: none;
+    }
+    .input-wrap .prefix { left: 14px; }
+    .input-wrap .suffix { right: 14px; }
+    .input-wrap.has-prefix input { padding-left: 30px; }
+    .input-wrap.has-suffix input { padding-right: 42px; }
+
+    input[type="text"], input[type="number"], input[type="password"] {
+      width: 100%; font: inherit; color: var(--text);
+      padding: 12px 14px; background: #fff;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input::placeholder { color: #94a3b8; }
+    input:hover { border-color: #cbd5e1; }
+    input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, .14);
+    }
+    input.invalid { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(220, 38, 38, .1); }
+    .error-msg { color: var(--danger); font-size: .82rem; margin-top: 6px; min-height: 0; }
+    .error-msg:empty { display: none; }
+
+    .row { display: grid; grid-template-columns: 1fr; gap: 0 16px; }
+    @media (min-width: 520px) { .row { grid-template-columns: 1fr 1fr; } }
+
+    /* Interruptor de descuento */
+    .switch-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      margin-bottom: 18px;
+    }
+    .switch-row .t { font-weight: 600; font-size: .92rem; }
+    .switch-row .d { font-size: .8rem; color: var(--text-muted); }
+    .switch { position: relative; width: 44px; height: 26px; flex: none; }
+    .switch input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+    .switch .track {
+      position: absolute; inset: 0; background: #cbd5e1; border-radius: 99px; transition: background .2s;
+    }
+    .switch .track::after {
+      content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+      background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+      transition: transform .2s;
+    }
+    .switch input:checked + .track { background: var(--primary); }
+    .switch input:checked + .track::after { transform: translateX(18px); }
+    .switch input:focus-visible + .track { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+
+    .discount-box { display: none; }
+    .discount-box.open { display: block; }
+
+    /* Estado del peso (buscado / manual / tabla) */
+    .weight-status {
+      display: none; align-items: center; gap: 8px; margin-top: 8px;
+      font-size: .82rem; padding: 8px 12px; border-radius: 8px;
+    }
+    .weight-status.show { display: flex; }
+    .weight-status.web   { background: var(--success-soft); color: var(--success); }
+    .weight-status.table { background: var(--warning-soft); color: var(--warning); }
+    .weight-status.manual { background: var(--primary-soft); color: var(--primary); }
+    .weight-status.err { background: var(--danger-soft); color: var(--danger); }
+    .weight-status.loading { background: #f1f5f9; color: var(--text-muted); }
+
+    .spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid currentColor; border-right-color: transparent;
+      animation: spin .7s linear infinite; flex: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* =====================================================
+       5. BOTONES
+       ===================================================== */
+    .btn {
+      font: inherit; font-weight: 600; cursor: pointer; border: 0;
+      padding: 13px 20px; border-radius: var(--radius-sm);
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.28); }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37,99,235,.32); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .65; cursor: wait; transform: none; }
+    .btn-ghost { background: transparent; color: var(--text-muted); }
+    .btn-ghost:hover { background: #f1f5f9; color: var(--text); }
+    .btn-link {
+      background: none; border: 0; padding: 0; font: inherit; font-size: .82rem;
+      color: var(--primary); font-weight: 600; cursor: pointer;
+    }
+    .btn-link:hover { text-decoration: underline; }
+    .btn:focus-visible, .btn-link:focus-visible { outline: 3px solid rgba(37,99,235,.4); outline-offset: 2px; }
+    .actions { display: flex; gap: 10px; margin-top: 8px; }
+    .actions .btn-primary { flex: 1; }
+
+    /* Alerta general del formulario */
+    .alert {
+      display: none; padding: 12px 14px; border-radius: var(--radius-sm);
+      background: var(--danger-soft); color: var(--danger); font-size: .9rem; margin-bottom: 18px;
+    }
+    .alert.show { display: block; }
+
+    /* =====================================================
+       6. TARJETA DE RESULTADOS
+       ===================================================== */
+    .empty { text-align: center; padding: 48px 12px; color: var(--text-muted); }
+    .empty svg { margin-bottom: 12px; color: #cbd5e1; }
+    .empty p { margin: 0; max-width: 32ch; margin-inline: auto; }
+
+    #resultado { display: none; }
+    #resultado.show { display: block; animation: aparecer .45s cubic-bezier(.2,.8,.2,1); }
+    @keyframes aparecer {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .product-name {
+      display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+      padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .product-name strong { font-size: 1.05rem; overflow-wrap: anywhere; }
+    .badge {
+      flex: none; font-size: .75rem; font-weight: 600; padding: 3px 10px; border-radius: 99px;
+      background: var(--primary-soft); color: var(--primary);
+    }
+
+    .line {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+      padding: 12px 0; border-bottom: 1px dashed var(--border); font-size: .95rem;
+    }
+    .line .k { color: var(--text-muted); }
+    .line .k small { display: block; font-size: .78rem; color: #94a3b8; }
+    .line .v { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+    .line .v.neg { color: var(--success); }
+
+    .total {
+      margin-top: 18px; padding: 18px 20px; border-radius: var(--radius-sm);
+      background: var(--primary); color: #fff;
+      display: flex; justify-content: space-between; align-items: center; gap: 6px 12px; flex-wrap: wrap;
+    }
+    /* El texto va a la izquierda y puede partirse en 2 líneas; la cifra va a la derecha */
+    .total .k { font-size: .95rem; opacity: .9; flex: 1 1 5.5rem; min-width: 0; }
+    /* La cifra nunca se parte: una sola línea, con tamaño que se adapta al ancho de la pantalla */
+    .total .v {
+      font-size: clamp(1.3rem, 6.2vw, 1.75rem); font-weight: 700; letter-spacing: -.02em;
+      font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; margin-left: auto;
+    }
+
+    .footnote { margin: 14px 0 0; font-size: .8rem; color: var(--text-muted); }
+
+    /* Conversión a CUP */
+    .cup .total { background: var(--primary-soft); color: var(--primary); margin-top: 12px; }
+    .hist-total small { display: block; font-weight: 500; font-size: .78rem; color: var(--text-muted); text-align: right; }
+
+    /* Columna derecha (resumen + historial) e historial */
+    .col { display: grid; gap: 24px; min-width: 0; }
+    .hist-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .hist-note { background: var(--warning-soft); color: var(--warning); font-size: .82rem; padding: 8px 12px; border-radius: 8px; margin: 0 0 12px; }
+    .hist-empty { color: var(--text-muted); font-size: .92rem; margin: 0; }
+    .hist-list { list-style: none; margin: 0; padding: 0; }
+    .hist-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .hist-item:last-child { border-bottom: 0; }
+    .hist-item strong { display: block; overflow-wrap: anywhere; }
+    .hist-item small { color: var(--text-muted); font-size: .8rem; }
+    .hist-total { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary); flex: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ========== CABECERA ========== -->
+  <header class="topbar">
+    <div class="container">
+      <div class="logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+      </div>
+      <strong id="tituloApp">Calculadora de importación</strong>
+      <div class="top-actions">
+      <button type="button" class="cart-btn" id="btnAjustes" title="Ajustes de precios" aria-label="Ajustes de precios">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button type="button" class="cart-btn" id="btnCarrito" aria-pressed="false" title="Calcular varios productos" aria-label="Modo varios productos (carrito)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a1.5 1.5 0 0 0 1.5 1.2h8.3a1.5 1.5 0 0 0 1.5-1.1L21 8H6"/></svg>
+        <span class="txt">Varios</span>
+        <span class="cart-count" id="cartCount" aria-hidden="true">0</span>
+      </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="intro">
+      <h1 id="titulo">Calcula el costo total de un artículo</h1>
+    </section>
+
+    <div class="layout">
+      <!-- ========== TARJETA DEL FORMULARIO ========== -->
+      <section class="card" aria-labelledby="t-datos">
+        <h2 id="t-datos">Datos del artículo</h2>
+        <p class="sub">Los campos con * son obligatorios.</p>
+
+        <div id="alerta" class="alert" role="alert"></div>
+
+        <div id="form" role="group" aria-label="Datos del artículo">
+          <!-- Nombre -->
+          <div class="field">
+            <label for="nombre">Nombre del artículo *</label>
+            <input type="text" id="nombre" placeholder="Ej.: zapatos número 42" autocomplete="off" />
+            <div class="error-msg" id="err-nombre"></div>
+          </div>
+
+          <!-- Precio -->
+          <div class="field">
+            <label for="precio">Precio *</label>
+            <div class="input-wrap has-prefix">
+              <span class="affix prefix">$</span>
+              <input type="text" id="precio" inputmode="decimal" autocomplete="off" placeholder="0.00" />
+            </div>
+            <div class="error-msg" id="err-precio"></div>
+          </div>
+
+          <!-- Cantidad (solo en modo carrito) -->
+          <div class="field" id="campoCantidad" style="display:none">
+            <label for="cantidad">Cantidad *</label>
+            <input type="text" id="cantidad" inputmode="numeric" autocomplete="off" value="1" />
+            <div class="error-msg" id="err-cantidad"></div>
+          </div>
+
+          <!-- Descuento -->
+          <div class="switch-row">
+            <div>
+              <div class="t">¿Tiene descuento?</div>
+              <div class="d">Activa para aplicar un porcentaje</div>
+            </div>
+            <label class="switch" aria-label="Activar descuento">
+              <input type="checkbox" id="tieneDescuento" />
+              <span class="track"></span>
+            </label>
+          </div>
+
+          <div class="field discount-box" id="cajaDescuento">
+            <label for="descuento">Porcentaje de descuento *</label>
+            <div class="input-wrap has-suffix">
+              <input type="text" id="descuento" inputmode="decimal" autocomplete="off" placeholder="Ej.: 15" />
+              <span class="affix suffix">%</span>
+            </div>
+            <div class="error-msg" id="err-descuento"></div>
+          </div>
+
+          <!-- Peso -->
+          <div class="field">
+            <label for="peso">Peso en libras (lb)</label>
+            <div class="input-wrap has-suffix">
+              <input type="text" id="peso" inputmode="decimal" autocomplete="off" placeholder="Si lo dejas vacío, se busca" />
+              <span class="affix suffix">lb</span>
+            </div>
+            <div class="weight-status" id="estadoPeso" aria-live="polite"></div>
+            <div class="hint">
+              ¿Prefieres verlo antes de calcular?
+              <button type="button" class="btn-link" id="btnBuscar">Buscar peso ahora</button>
+            </div>
+            <div class="error-msg" id="err-peso"></div>
+          </div>
+
+          <!-- Tasa del dólar en CUP (la escribe el usuario) -->
+          <div class="field">
+            <label for="tasa">Tasa del dólar en CUP</label>
+            <div class="input-wrap has-suffix">
+              <input type="text" id="tasa" inputmode="decimal" autocomplete="off" placeholder="Ej.: 710" />
+              <span class="affix suffix">CUP</span>
+            </div>
+            <div class="hint" id="estadoDatos">Opcional: si la escribes, se muestra el total también en CUP.</div>
+            <div class="error-msg" id="err-tasa"></div>
+
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="btnCalcular">Calcular total</button>
+            <button type="button" class="btn btn-ghost" id="btnLimpiar">Limpiar</button>
+          </div>
+          <div class="weight-status" id="avisoCarrito" aria-live="polite" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <div class="col">
+      <!-- ========== TARJETA DEL CARRITO (modo varios productos) ========== -->
+      <section class="card" id="tarjetaCarrito" aria-labelledby="t-carrito" aria-live="polite" style="display:none">
+        <div class="hist-head">
+          <h2 id="t-carrito">Carrito</h2>
+          <button type="button" class="btn-link" id="btnVaciar" style="display:none">Vaciar carrito</button>
+        </div>
+        <p class="sub">Agrega los productos y mira el total de todos juntos.</p>
+        <p class="hist-note" id="notaCarrito" style="display:none">Este visor no permite guardar datos, así que el carrito se borrará al cerrar. Abre la página en tu navegador para conservarlo.</p>
+
+        <div class="empty" id="carritoVacio">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a1.5 1.5 0 0 0 1.5 1.2h8.3a1.5 1.5 0 0 0 1.5-1.1L21 8H6"/></svg>
+          <p>El carrito está vacío. Completa los datos y pulsa “Agregar al carrito”.</p>
+        </div>
+
+        <ul class="cart-list" id="listaCarrito"></ul>
+
+        <div class="cart-summary" id="resumenCarrito" style="display:none">
+          <div class="line"><span class="k">Precio original</span><span class="v" id="c-original"></span></div>
+          <div class="line"><span class="k">Precio con descuento</span><span class="v" id="c-descontado"></span></div>
+          <div class="line"><span class="k">Impuesto aplicado</span><span class="v" id="c-impuesto"></span></div>
+          <div class="line"><span class="k">Precio total con impuestos</span><span class="v" id="c-conImpuesto"></span></div>
+          <div class="line"><span class="k">Peso total</span><span class="v" id="c-peso"></span></div>
+          <div class="line"><span class="k">Costo por peso</span><span class="v" id="c-costoPeso"></span></div>
+          <div class="total">
+            <span class="k">Total final del carrito</span>
+            <span class="v" id="c-total"></span>
+          </div>
+          <div class="cup" id="c-bloqueCUP" style="display:none">
+            <div class="line"><span class="k">Tasa de cambio</span><span class="v" id="c-tasa"></span></div>
+            <div class="total">
+              <span class="k">Total final en CUP</span>
+              <span class="v" id="c-total-cup"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== TARJETA DE RESULTADOS ========== -->
+      <section class="card" id="tarjetaResultado" aria-labelledby="t-res" aria-live="polite">
+        <h2 id="t-res">Resumen del cálculo</h2>
+        <p class="sub">Cada paso del cálculo, en orden.</p>
+
+        <div class="empty" id="vacio">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h2M14 10h2M8 14h2M14 14h2M8 18h8"/></svg>
+          <p>Completa los datos y pulsa “Calcular total” para ver el desglose.</p>
+        </div>
+
+        <div id="resultado">
+          <div class="product-name">
+            <strong id="r-nombre"></strong>
+            <span class="badge" id="r-badge"></span>
+          </div>
+
+          <div class="line"><span class="k">Precio original</span><span class="v" id="r-original"></span></div>
+          <div class="line"><span class="k">Precio con descuento<small id="r-desc-detalle"></small></span><span class="v" id="r-descontado"></span></div>
+          <div class="line"><span class="k">Impuesto aplicado</span><span class="v" id="r-impuesto"></span></div>
+          <div class="line"><span class="k">Precio total con impuestos</span><span class="v" id="r-conImpuesto"></span></div>
+          <div class="line"><span class="k">Peso usado<small id="r-peso-fuente"></small></span><span class="v" id="r-peso"></span></div>
+          <div class="line"><span class="k">Costo por peso</span><span class="v" id="r-costoPeso"></span></div>
+
+          <div class="total">
+            <span class="k">Total final del producto</span>
+            <span class="v" id="r-total"></span>
+          </div>
+
+          <div class="cup" id="bloqueCUP" style="display:none">
+            <div class="line"><span class="k">Tasa de cambio</span><span class="v" id="r-tasa"></span></div>
+            <div class="total">
+              <span class="k">Total final en CUP</span>
+              <span class="v" id="r-total-cup"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+        <!-- ========== HISTORIAL (solo en memoria) ========== -->
+        <section class="card" id="tarjetaHistorial" aria-labelledby="t-hist">
+          <div class="hist-head">
+            <h2 id="t-hist">Historial</h2>
+            <button type="button" class="btn-link" id="btnBorrarHistorial" style="display:none">Borrar historial</button>
+          </div>
+          <p class="sub">Tus últimos cálculos, guardados en este dispositivo.</p>
+          <p class="hist-note" id="notaAlmacenamiento" style="display:none">Este visor no permite guardar datos, así que el historial se borrará al cerrar. Abre el archivo en tu navegador para conservarlo.</p>
+          <p class="hist-empty" id="historialVacio">Aún no hay cálculos.</p>
+          <ul class="hist-list" id="listaHistorial"></ul>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========== PANEL DE ADMINISTRACIÓN (solo en la app Admin) ========== -->
+  <div class="modal" id="modalAjustes" role="dialog" aria-modal="true" aria-labelledby="t-ajustes" hidden>
+    <div class="card">
+      <h2 id="t-ajustes">Panel de administración</h2>
+      <p class="sub">Lo que publiques lo verán las apps de tus clientes.</p>
+
+      <h3 class="sec">Precios</h3>
+      <div class="field">
+        <label for="aj-costo">Costo por libra (USD)</label>
+        <div class="input-wrap has-prefix">
+          <span class="affix prefix">$</span>
+          <input type="text" id="aj-costo" inputmode="decimal" autocomplete="off" placeholder="4" />
+        </div>
+        <div class="error-msg" id="err-aj-costo"></div>
+      </div>
+      <div class="field">
+        <label for="aj-tasa">Tasa del dólar en CUP</label>
+        <div class="input-wrap has-suffix">
+          <input type="text" id="aj-tasa" inputmode="decimal" autocomplete="off" placeholder="Ej.: 710" />
+          <span class="affix suffix">CUP</span>
+        </div>
+        <div class="hint">Déjala vacía si no quieres que se muestre el total en CUP.</div>
+        <div class="error-msg" id="err-aj-tasa"></div>
+      </div>
+
+      <h3 class="sec">Productos con peso fijo</h3>
+      <p class="hint" style="margin-top:0">Si alguien busca uno de estos productos, la app usa las libras que pongas aquí.</p>
+      <ul class="prod-list" id="listaProductos"></ul>
+      <p class="hint" id="productosVacio">Todavía no hay productos.</p>
+      <div class="fila2">
+        <div class="field" style="margin-bottom:8px">
+          <label for="ap-nombre">Producto</label>
+          <input type="text" id="ap-nombre" autocomplete="off" placeholder="Ej.: ventilador Coldsky" />
+        </div>
+        <div class="field" style="margin-bottom:8px">
+          <label for="ap-libras">Libras</label>
+          <input type="text" id="ap-libras" inputmode="decimal" autocomplete="off" placeholder="3.2" />
+        </div>
+      </div>
+      <div class="error-msg" id="err-ap"></div>
+      <button type="button" class="btn btn-outline btn-small" id="btnAgregarProducto">Agregar producto</button>
+
+      <h3 class="sec">Publicar</h3>
+      <div class="weight-status" id="estadoPublicacion" aria-live="polite"></div>
+      <div class="field" style="margin-top:12px">
+        <label for="aj-token">Token de GitHub</label>
+        <input type="password" id="aj-token" autocomplete="off" placeholder="Pégalo aquí (solo la primera vez)" />
+        <div class="hint" id="notaToken">Se guarda solo en este teléfono.</div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnPublicar">Publicar cambios</button>
+        <button type="button" class="btn btn-outline" id="btnAjGuardar">Guardar sin publicar</button>
+        <button type="button" class="btn btn-ghost" id="btnAjTraer">Traer lo publicado</button>
+        <button type="button" class="btn btn-ghost" id="btnAjCancelar">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* Lo cambia la compilación: false = app de clientes, true = app Admin */
+const MODO_ADMIN = false;
+
+/* =========================================================
+   CONFIGURACIÓN
+   ========================================================= */
+const CONFIG = {
+  IMPUESTO: 0.07,          // 7 % sobre el precio ya descontado
+  COSTO_POR_LIBRA: 4,      // USD por cada libra
+  TIMEOUT_MS: 5000,        // tiempo máximo por consulta a internet
+  USAR_PROXY_WEB: true,    // consulta también resultados web normales mediante un proxy CORS público
+
+  // OPCIONAL: si tienes una clave de Google Custom Search, complétala aquí
+  // para tener resultados más completos. Sin claves, se usan DuckDuckGo y Wikipedia.
+  GOOGLE_API_KEY: "",
+  GOOGLE_CX: ""
+};
+
+/* =========================================================
+   TABLA INTERNA DE PESOS (libras) – respaldo si falla internet
+   - Los pesos son aproximados y por unidad (o por par en calzado).
+   - Se buscan por PALABRAS, sin importar el orden ni acentos ni plurales:
+     "ventilador coldsky recargable" coincide con "ventilador recargable".
+   - Gana la entrada que coincida con más palabras (la más específica).
+   ========================================================= */
+const TABLA_PESOS = {
+  // Calzado y ropa
+  "zapato": 2.2, "tenis": 2.0, "zapatilla": 2.0, "bota": 3.0, "sandalia": 0.9, "chancleta": 0.6,
+  "camisa": 0.5, "camiseta": 0.4, "pantalon": 1.3, "jeans": 1.6, "short": 0.6, "vestido": 0.9,
+  "chaqueta": 2.0, "abrigo": 3.0, "sudadera": 1.4, "medias": 0.2, "ropa interior": 0.2,
+  "gorra": 0.3, "mochila": 2.0, "cartera": 1.5, "bolso": 1.5, "maleta": 9.0, "cinturon": 0.5,
+  // Electrónica
+  "celular": 0.45, "telefono": 0.45, "smartphone": 0.45, "iphone": 0.45, "tablet": 1.1, "laptop": 4.0,
+  "computadora portatil": 4.0, "computadora": 15.0, "monitor": 10.0, "televisor": 25.0, "tv": 25.0,
+  "audifonos": 0.6, "auriculares": 0.6, "bocina": 2.0, "bocina bluetooth": 1.5, "altavoz": 2.0,
+  "cargador": 0.4, "cargador portatil": 0.5, "power bank": 0.9, "teclado": 2.0, "mouse": 0.25, "raton": 0.25,
+  "camara": 1.5, "consola": 8.0, "smartwatch": 0.15, "reloj": 0.3, "router": 1.0, "impresora": 15.0,
+  "linterna": 0.5, "lampara recargable": 1.0,
+  // Ventiladores (varían mucho según el tipo)
+  "ventilador": 6.0,
+  "ventilador recargable": 3.0, "ventilador portatil": 1.5, "ventilador de mano": 0.5,
+  "ventilador de cuello": 0.7, "mini ventilador": 0.6, "ventilador usb": 0.6,
+  "ventilador de mesa": 4.0, "ventilador de pie": 10.0, "ventilador de techo": 12.0,
+  "ventilador de torre": 10.0, "ventilador de camping": 2.5, "ventilador con bateria": 3.0,
+  // Hogar y cocina
+  "licuadora": 8.0, "microondas": 30.0, "olla": 4.0, "sarten": 2.5, "cafetera": 6.0, "plancha": 3.0,
+  "hervidor": 2.5, "freidora de aire": 12.0, "arrocera": 6.0, "batidora": 5.0, "tostadora": 4.0,
+  "secador de pelo": 1.5, "plancha de pelo": 1.0, "afeitadora": 0.5, "termo": 1.5, "botella": 0.8,
+  "aire acondicionado": 60.0, "refrigerador": 150.0, "lavadora": 130.0,
+  "sabana": 2.5, "toalla": 1.5, "almohada": 2.0, "colchon": 50.0, "lampara": 3.5,
+  // Gimnasio y deporte
+  "mancuerna": 10.0, "pesa": 10.0, "barra": 45.0, "disco": 25.0, "kettlebell": 35.0,
+  "banda elastica": 0.5, "colchoneta": 2.5, "guantes de gimnasio": 0.4, "balon": 1.4, "pelota": 1.0,
+  "bicicleta": 30.0, "cuerda de saltar": 0.5, "banco de ejercicios": 35.0,
+  // Otros
+  "libro": 1.2, "juguete": 1.0, "muneca": 1.0, "perfume": 0.8, "crema": 0.5, "shampoo": 1.1,
+  "herramienta": 3.0, "taladro": 4.5, "bateria": 30.0, "neumatico": 25.0, "silla": 12.0, "mesa": 30.0
+};
+const PESO_POR_DEFECTO = 2.0; // si no hay ninguna coincidencia
+
+// Palabras que no ayudan a identificar el artículo
+const PALABRAS_VACIAS = new Set(["de","del","la","el","los","las","un","una","unos","unas","para","con","sin","y","o","en","a","por","numero","talla","size","pack","set","nuevo","nueva"]);
+
+/** Quita plural simple: "zapatos" → "zapato", "televisores" → "televisor". */
+function raizPalabra(w) {
+  if (w.length > 5 && w.endsWith("es")) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith("s")) return w.slice(0, -1);
+  return w;
+}
+/** Texto → lista de palabras clave normalizadas (sin acentos, sin plurales, sin palabras vacías). */
+function palabrasClave(texto) {
+  return normalizar(texto).split(/[^a-z0-9]+/)
+    .filter((w) => w && !PALABRAS_VACIAS.has(w))
+    .map(raizPalabra);
+}
+// Se prepara una vez: cada entrada con sus palabras
+const ENTRADAS_TABLA = Object.entries(TABLA_PESOS).map(([clave, peso]) => ({ clave, peso, palabras: palabrasClave(clave) }));
+
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
+const $ = (id) => document.getElementById(id);
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const cup = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n) + " CUP";
+const redondear = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+/** Minúsculas y sin acentos, para comparar texto. */
+function normalizar(t) {
+  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+/** fetch con tiempo máximo. tipo: "json" (por defecto) o "texto". */
+async function fetchConTimeout(url, tipo = "json") {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CONFIG.TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return tipo === "texto" ? await res.text() : await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* =========================================================
+   CÁLCULOS
+   ========================================================= */
+
+/** Precio después de aplicar el descuento (porcentaje 0–100). */
+function calcularDescuento(precio, porcentaje) {
+  return redondear(precio * (1 - porcentaje / 100));
+}
+
+/** Impuesto (7 %) sobre el precio ya descontado. */
+function calcularImpuesto(precioConDescuento) {
+  return redondear(precioConDescuento * CONFIG.IMPUESTO);
+}
+
+/** Costo por peso: 4 USD por libra. */
+function calcularCostoPeso(pesoLb) {
+  return redondear(pesoLb * CONFIG.COSTO_POR_LIBRA);
+}
+
+/* =========================================================
+   BÚSQUEDA DE PESO
+   ========================================================= */
+
+/** Convierte una cantidad y su unidad a libras. */
+function aLibras(valor, unidad) {
+  const u = unidad.toLowerCase();
+  if (/^(kg|kilo|kilos|kilogramo|kilogramos)$/.test(u)) return valor * 2.20462;
+  if (/^(g|gr|gramo|gramos)$/.test(u)) return valor / 453.592;
+  if (/^(lb|lbs|libra|libras)$/.test(u)) return valor;
+  if (/^(oz|onza|onzas)$/.test(u)) return valor / 16;
+  return NaN;
+}
+
+/** Convierte "1,5" o "1.500" a número. */
+function parsearNumero(s) {
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ""); // 1.500 → 1500
+  return parseFloat(s.replace(",", "."));
+}
+
+/**
+ * Extrae pesos (en libras) desde un texto libre.
+ * - Rangos ("800 - 900 g", "entre 1,2 y 1,5 kg") → promedio del rango.
+ * - Valores sueltos ("1.2 kg") → tal cual.
+ * Se descartan valores absurdos (< 0.02 lb o > 1000 lb).
+ */
+function extraerPesos(texto) {
+  const U = "kilogramos?|kilos?|kg|gramos?|gr|g|libras?|lbs?|onzas?|oz";
+  const N = "\\d+(?:[.,]\\d+)*";
+  const reRango = new RegExp(`(${N})\\s*(?:-|–|—|a|y|to)\\s*(${N})\\s*(${U})\\b`, "gi");
+  const reSimple = new RegExp(`(${N})\\s*(${U})\\b`, "gi");
+  const encontrados = [];
+  const valido = (lb) => Number.isFinite(lb) && lb >= 0.02 && lb <= 1000;
+
+  let t = texto;
+  t = t.replace(reRango, (_, a, b, unidad) => {
+    const lb = aLibras((parsearNumero(a) + parsearNumero(b)) / 2, unidad);
+    if (valido(lb)) encontrados.push(lb);
+    return " "; // se elimina para no contarlo otra vez
+  });
+  t.replace(reSimple, (_, n, unidad) => {
+    const lb = aLibras(parsearNumero(n), unidad);
+    if (valido(lb)) encontrados.push(lb);
+    return " ";
+  });
+  return encontrados;
+}
+
+/**
+ * Como extraerPesos(), pero solo mira oraciones que:
+ *  1) hablan de peso ("pesa", "peso", "weight"…), y
+ *  2) mencionan el artículo (al menos 2 de sus palabras, o 1 si solo tiene una).
+ * Así se evita tomar pesos de cosas que no tienen que ver con lo buscado.
+ */
+function extraerPesosRelevantes(texto, claves) {
+  const necesarias = Math.min(2, claves.length);
+  const hablaDePeso = /\b(peso|pesa|pesan|pesado|weight|weighs|weigh|wt)\b/i;
+  const oraciones = texto.split(/(?<=[.!?])\s+|\n+/);
+  const pesos = [];
+  for (const o of oraciones) {
+    if (!hablaDePeso.test(o)) continue;
+    const palabras = new Set(palabrasClave(o));
+    const coinciden = claves.filter((c) => palabras.has(c)).length;
+    if (coinciden < necesarias) continue;
+    pesos.push(...extraerPesos(o));
+  }
+  return pesos;
+}
+
+/** Mediana: más robusta que el promedio ante valores extraños. */
+function mediana(arr) {
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/** Lee un número escrito con coma o punto ("2,20" o "2.20"). Devuelve NaN si no es válido. */
+function leerDecimal(texto) {
+  const t = String(texto).trim().replace(",", ".");
+  return t === "" ? NaN : Number(t);
+}
+
+/** Quita etiquetas HTML de los fragmentos (snippets). */
+const limpiarHTML = (s) => (s || "").replace(/<[^>]+>/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+
+/* ---- Fuentes de búsqueda (todas funcionan sin clave, salvo Google) ---- */
+
+async function fuenteDuckDuckGo(consulta) {
+  const url = "https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=" + encodeURIComponent(consulta);
+  const d = await fetchConTimeout(url);
+  const partes = [d.AbstractText, d.Answer, d.Definition];
+  (d.RelatedTopics || []).forEach((t) => partes.push(t.Text));
+  return partes.filter(Boolean).join("\n");
+}
+
+async function fuenteWikipedia(consulta, idioma) {
+  const url = `https://${idioma}.wikipedia.org/w/api.php?action=query&list=search&format=json&origin=*&srlimit=8&srsearch=` + encodeURIComponent(consulta);
+  const d = await fetchConTimeout(url);
+  return (d.query?.search || []).map((r) => limpiarHTML(r.snippet)).join("\n");
+}
+
+async function fuenteGoogle(consulta) {
+  if (!CONFIG.GOOGLE_API_KEY || !CONFIG.GOOGLE_CX) return "";
+  const url = `https://www.googleapis.com/customsearch/v1?key=${CONFIG.GOOGLE_API_KEY}&cx=${CONFIG.GOOGLE_CX}&num=10&q=` + encodeURIComponent(consulta);
+  const d = await fetchConTimeout(url);
+  return (d.items || []).map((i) => `${i.title}. ${i.snippet}`).join("\n");
+}
+
+/**
+ * Resultados web normales (fichas de tiendas, especificaciones…) leídos a través de
+ * un proxy CORS público, porque el navegador no deja consultar buscadores directamente.
+ */
+async function fuenteWebProxy(consulta) {
+  if (!CONFIG.USAR_PROXY_WEB) return "";
+  const destino = "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(consulta);
+  const html = await fetchConTimeout("https://api.allorigins.win/raw?url=" + encodeURIComponent(destino), "texto");
+  // Cada etiqueta pasa a salto de línea para que cada resultado quede en su propia línea
+  return limpiarHTML(html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, "\n"));
+}
+
+/** Respaldo: busca en la tabla interna la entrada que coincida con más palabras. */
+function pesoDesdeTabla(texto) {
+  const palabras = new Set(palabrasClave(texto));
+  let mejores = [], maximo = 0;
+  for (const e of ENTRADAS_TABLA) {
+    if (!e.palabras.length || !e.palabras.every((w) => palabras.has(w))) continue;
+    if (e.palabras.length > maximo) { maximo = e.palabras.length; mejores = [e]; }
+    else if (e.palabras.length === maximo) mejores.push(e);
+  }
+  if (!mejores.length) {
+    return { pesoLb: PESO_POR_DEFECTO, fuente: "tabla", coincide: false, detalle: "valor genérico de la tabla interna" };
+  }
+  // Si hay empate (ej. "ventilador de mesa recargable"), se promedian las coincidencias
+  const pesoLb = redondear(mejores.reduce((s, e) => s + e.peso, 0) / mejores.length);
+  return { pesoLb, fuente: "tabla", coincide: true, detalle: `tabla interna (“${mejores.map((e) => e.clave).join(" / ")}”)` };
+}
+
+/**
+ * Busca en internet un peso aproximado para el artículo.
+ * Devuelve { pesoLb, fuente: "web" | "tabla", detalle }.
+ * Un peso hallado en internet solo se acepta si es coherente con la tabla interna
+ * (entre 1/4 y 4 veces su valor); si no, se considera ruido y se usa la tabla.
+ */
+async function buscarPesoEnInternet(texto) {
+  // 1) Productos que la tienda dio de alta con su peso: tienen prioridad sobre todo lo demás
+  const propio = buscarProductoTienda(texto);
+  if (propio) return { pesoLb: propio.libras, fuente: "tienda", detalle: `“${propio.nombre}”` };
+
+  const claves = palabrasClave(texto);
+  const ref = pesoDesdeTabla(texto);
+  const coherente = (lb) => !ref.coincide || (lb >= ref.pesoLb / 4 && lb <= ref.pesoLb * 4);
+
+  const qEs = `${texto} peso`;
+  const qEsp = `${texto} peso especificaciones kg`;
+  const qEn = `${texto} weight lbs specifications`;
+  const fuentes = [
+    { nombre: "Google", fn: () => fuenteGoogle(qEsp) },
+    { nombre: "DuckDuckGo", fn: () => fuenteDuckDuckGo(qEs) },
+    { nombre: "resultados web", fn: () => fuenteWebProxy(qEsp) },
+    { nombre: "resultados web (en)", fn: () => fuenteWebProxy(qEn) },
+    { nombre: "Wikipedia", fn: () => fuenteWikipedia(qEs, "es") },
+    { nombre: "Wikipedia (en)", fn: () => fuenteWikipedia(qEn, "en") }
+  ];
+
+  // Todas las fuentes se consultan a la vez: el tiempo máximo total es TIMEOUT_MS.
+  // Gana la primera que devuelva un peso relevante y coherente.
+  const resultado = await new Promise((resolve) => {
+    let pendientes = fuentes.length;
+    fuentes.forEach(async (f) => {
+      try {
+        const contenido = await f.fn();
+        const pesos = extraerPesosRelevantes(contenido || "", claves);
+        if (pesos.length) {
+          const lb = redondear(mediana(pesos));
+          if (coherente(lb)) resolve({ pesoLb: lb, fuente: "web", detalle: `estimado desde ${f.nombre}` });
+        }
+      } catch (e) {
+        // Sin conexión, bloqueo (CORS) o tiempo agotado: se ignora esta fuente.
+      } finally {
+        if (--pendientes === 0) resolve(null); // ninguna encontró nada útil
+      }
+    });
+  });
+  return resultado || ref;
+}
+
+/* =========================================================
+   INTERFAZ
+   ========================================================= */
+let pesoFuente = null; // "web" | "tabla" | "manual" | null
+let pesoDetalle = "";
+let buscando = false;
+
+function mostrarEstadoPeso(tipo, mensaje) {
+  const el = $("estadoPeso");
+  el.className = "weight-status show " + tipo;
+  el.innerHTML = tipo === "loading" ? `<span class="spinner"></span><span>${mensaje}</span>` : `<span>${mensaje}</span>`;
+}
+function ocultarEstadoPeso() { $("estadoPeso").className = "weight-status"; }
+
+function setError(campo, mensaje) {
+  const input = $(campo);
+  $("err-" + campo).textContent = mensaje || "";
+  input.classList.toggle("invalid", !!mensaje);
+}
+
+/** Valida el formulario. Devuelve los datos limpios o null. */
+function validarFormulario({ exigirPeso }) {
+  let ok = true;
+  const nombre = $("nombre").value.trim();
+  const precio = leerDecimal($("precio").value);
+  const conDescuento = $("tieneDescuento").checked;
+  const descuento = conDescuento ? leerDecimal($("descuento").value) : 0;
+  const pesoTxt = $("peso").value.trim();
+  const tasaTxt = $("tasa").value.trim();
+  const cantidad = modoCarrito ? Number($("cantidad").value.trim().replace(",", ".")) : 1;
+  const tasa = tasaTxt === "" ? null : leerDecimal(tasaTxt);
+  const peso = pesoTxt === "" ? null : leerDecimal(pesoTxt);
+
+  ["nombre", "precio", "descuento", "peso", "tasa", "cantidad"].forEach((c) => setError(c, ""));
+  $("alerta").classList.remove("show");
+
+  if (!nombre) { setError("nombre", "Escribe el nombre del artículo."); ok = false; }
+  if (exigirPeso === false && !nombre) return null; // la búsqueda solo necesita el nombre
+
+  if (exigirPeso !== false) {
+    if (!Number.isFinite(precio) || precio <= 0) { setError("precio", "Ingresa un precio mayor que 0."); ok = false; }
+    if (conDescuento && (!Number.isFinite(descuento) || descuento < 0 || descuento > 100)) {
+      setError("descuento", "El descuento debe estar entre 0 y 100 %."); ok = false;
+    }
+    if (peso !== null && (!Number.isFinite(peso) || peso <= 0)) {
+      setError("peso", "El peso debe ser mayor que 0."); ok = false;
+    }
+    if (modoCarrito && (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 999)) {
+      setError("cantidad", "Ingresa una cantidad entera de 1 a 999."); ok = false;
+    }
+    if (tasa !== null && (!Number.isFinite(tasa) || tasa <= 0)) {
+      setError("tasa", "La tasa debe ser un número mayor que 0."); ok = false;
+    }
+  }
+
+  if (!ok) {
+    const a = $("alerta");
+    a.textContent = "Revisa los campos marcados en rojo antes de continuar.";
+    a.classList.add("show");
+    return null;
+  }
+  return { nombre, precio, descuento: conDescuento ? descuento : 0, conDescuento, peso, tasa, cantidad };
+}
+
+/** Busca el peso, lo escribe en el campo (editable) y muestra su origen. */
+async function ejecutarBusquedaPeso(nombre) {
+  buscando = true;
+  $("btnBuscar").disabled = true;
+  mostrarEstadoPeso("loading", "Buscando peso aproximado en internet…");
+  const r = await buscarPesoEnInternet(nombre);
+  $("peso").value = r.pesoLb;
+  pesoFuente = r.fuente;
+  pesoDetalle = r.detalle;
+  if (r.fuente === "tienda") {
+    mostrarEstadoPeso("web", `Peso definido por la tienda: ${r.pesoLb} lb (${r.detalle}). Puedes editarlo.`);
+  } else if (r.fuente === "web") {
+    mostrarEstadoPeso("web", `Peso encontrado: ${r.pesoLb} lb (${r.detalle}). Puedes editarlo.`);
+  } else {
+    mostrarEstadoPeso("table", `No se encontró un peso en internet. Se usó ${r.detalle}: ${r.pesoLb} lb. Puedes editarlo.`);
+  }
+  buscando = false;
+  $("btnBuscar").disabled = false;
+  return r;
+}
+
+/** Pinta el resumen en la tarjeta de resultados. */
+function actualizarResultados(d) {
+  $("r-nombre").textContent = d.nombre;
+  $("r-badge").textContent = d.conDescuento ? `-${d.descuento}%` : "Sin descuento";
+  $("r-original").textContent = usd.format(d.precio);
+  $("r-descontado").textContent = usd.format(d.precioDescuento);
+  $("r-desc-detalle").textContent = d.conDescuento ? `Ahorro de ${usd.format(d.precio - d.precioDescuento)}` : "No se aplicó descuento";
+  $("r-impuesto").textContent = usd.format(d.impuesto);
+  $("r-conImpuesto").textContent = usd.format(d.totalConImpuesto);
+  $("r-peso").textContent = `${d.peso} lb`;
+  $("r-peso-fuente").textContent =
+    d.fuentePeso === "tienda" ? "Definido por la tienda" :
+    d.fuentePeso === "web" ? "Buscado en internet" :
+    d.fuentePeso === "tabla" ? "Tabla interna de pesos" : "Ingresado manualmente";
+  $("r-costoPeso").textContent = usd.format(d.costoPeso);
+  $("r-total").textContent = usd.format(d.total);
+
+  // Conversión a CUP (solo si hay una tasa válida)
+  const bloqueCUP = $("bloqueCUP");
+  if (d.totalCUP) {
+    $("r-tasa").textContent = `1 USD = ${cup(d.tasa)}`;
+    $("r-total-cup").textContent = cup(d.totalCUP);
+    bloqueCUP.style.display = "";
+  } else {
+    bloqueCUP.style.display = "none";
+  }
+
+  $("vacio").style.display = "none";
+  const res = $("resultado");
+  res.classList.remove("show");
+  void res.offsetWidth;            // reinicia la animación
+  res.classList.add("show");
+}
+
+/* =========================================================
+   EVENTOS
+   ========================================================= */
+
+// Mostrar/ocultar campo de descuento
+$("tieneDescuento").addEventListener("change", (e) => {
+  $("cajaDescuento").classList.toggle("open", e.target.checked);
+  if (!e.target.checked) { $("descuento").value = ""; setError("descuento", ""); }
+});
+
+// Si el usuario escribe el peso a mano, queda marcado como manual
+$("peso").addEventListener("input", () => {
+  setError("peso", "");
+  if ($("peso").value.trim() === "") { pesoFuente = null; ocultarEstadoPeso(); return; }
+  pesoFuente = "manual";
+  mostrarEstadoPeso("manual", "Peso ingresado manualmente.");
+});
+
+// Quitar el error al escribir
+["nombre", "precio", "descuento", "tasa", "cantidad"].forEach((id) => $(id).addEventListener("input", () => setError(id, "")));
+
+// Botón "Buscar peso ahora"
+$("btnBuscar").addEventListener("click", async () => {
+  const datos = validarFormulario({ exigirPeso: false });
+  if (!datos || buscando) return;
+  await ejecutarBusquedaPeso(datos.nombre);
+});
+
+// Historial de cálculos. Se guarda en localStorage del navegador para que
+// sobreviva al cerrar la página. Si el visor no permite guardar, queda solo en memoria.
+const MAX_HISTORIAL = 20;
+const CLAVE_HISTORIAL = "calculadora_historial_v1";
+
+/** Comprueba si localStorage se puede usar (algunos visores lo bloquean). */
+function almacenamientoDisponible() {
+  try {
+    localStorage.setItem("__test", "1");
+    localStorage.removeItem("__test");
+    return true;
+  } catch (e) { return false; }
+}
+const puedeGuardar = almacenamientoDisponible();
+
+function cargarHistorial() {
+  if (!puedeGuardar) return [];
+  try {
+    const datos = JSON.parse(localStorage.getItem(CLAVE_HISTORIAL) || "[]");
+    if (!Array.isArray(datos)) return [];
+    return datos.slice(0, MAX_HISTORIAL).map((d) => ({ ...d, hora: new Date(d.hora) }));
+  } catch (e) { return []; }
+}
+
+function guardarHistorial() {
+  if (!puedeGuardar) return;
+  try { localStorage.setItem(CLAVE_HISTORIAL, JSON.stringify(historial)); } catch (e) { /* almacenamiento lleno */ }
+}
+
+const historial = cargarHistorial();
+
+function pintarHistorial() {
+  const lista = $("listaHistorial");
+  lista.textContent = "";
+  $("historialVacio").style.display = historial.length ? "none" : "";
+  $("btnBorrarHistorial").style.display = historial.length ? "" : "none";
+  $("notaAlmacenamiento").style.display = puedeGuardar ? "none" : "";
+  historial.forEach((it) => {
+    const li = document.createElement("li");
+    li.className = "hist-item";
+    const izq = document.createElement("div");
+    const nombre = document.createElement("strong");
+    nombre.textContent = it.nombre;
+    const det = document.createElement("small");
+    const hora = it.hora.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+    det.textContent = `${usd.format(it.precio)}${it.conDescuento ? ", -" + it.descuento + "%" : ""}, ${it.peso} lb, ${hora}`;
+    izq.append(nombre, det);
+    const total = document.createElement("span");
+    total.className = "hist-total";
+    total.textContent = usd.format(it.total);
+    if (it.totalCUP) {
+      const s = document.createElement("small");
+      s.textContent = cup(it.totalCUP);
+      total.append(s);
+    }
+    li.append(izq, total);
+    lista.append(li);
+  });
+}
+
+function agregarAlHistorial(d) {
+  historial.unshift({ ...d, hora: new Date() });
+  if (historial.length > MAX_HISTORIAL) historial.pop();
+  guardarHistorial();
+  pintarHistorial();
+}
+
+/**
+ * Validar → (buscar peso solo si está vacío) → calcular → mostrar y guardar en historial.
+ * Si el peso ya está escrito, NO se hace ninguna búsqueda: el cálculo es inmediato.
+ */
+async function calcular() {
+  if (buscando) return;
+  const datos = validarFormulario({ exigirPeso: true });
+  if (!datos) {
+    $("alerta").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  const btn = $("btnCalcular");
+  btn.disabled = true;
+  try {
+    let peso = datos.peso;
+    if (peso === null) {                      // solo aquí se usa internet
+      btn.textContent = "Buscando peso…";
+      const r = await ejecutarBusquedaPeso(datos.nombre);
+      peso = r.pesoLb;
+    }
+
+    // Modo carrito: se agrega el producto a la lista en vez de mostrar un solo resumen
+    if (modoCarrito) {
+      agregarAlCarrito({
+        nombre: datos.nombre, cantidad: datos.cantidad, precio: datos.precio, descuento: datos.descuento,
+        conDescuento: datos.conDescuento, peso, fuentePeso: pesoFuente || "manual"
+      });
+      vaciarCamposProducto();
+      return;
+    }
+
+    // Cadena de cálculos
+    const precioDescuento = calcularDescuento(datos.precio, datos.descuento);
+    const impuesto = calcularImpuesto(precioDescuento);
+    const totalConImpuesto = redondear(precioDescuento + impuesto);
+    const costoPeso = calcularCostoPeso(peso);
+    const total = redondear(totalConImpuesto + costoPeso);
+    const totalCUP = datos.tasa ? redondear(total * datos.tasa) : null;
+
+    const resumen = {
+      nombre: datos.nombre, precio: datos.precio, descuento: datos.descuento, conDescuento: datos.conDescuento,
+      precioDescuento, impuesto, totalConImpuesto, peso, fuentePeso: pesoFuente || "manual", costoPeso, total,
+      tasa: datos.tasa, totalCUP
+    };
+    actualizarResultados(resumen);
+    agregarAlHistorial(resumen);
+    $("resultado").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    const a = $("alerta");
+    a.textContent = "Ocurrió un error al calcular. Inténtalo de nuevo.";
+    a.classList.add("show");
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = modoCarrito ? "Agregar al carrito" : "Calcular total";
+  }
+}
+
+$("btnCalcular").addEventListener("click", calcular);
+$("btnBorrarHistorial").addEventListener("click", () => { historial.length = 0; guardarHistorial(); pintarHistorial(); });
+pintarHistorial(); // muestra el historial guardado al abrir la página
+
+/* =========================================================
+   MODO CARRITO (varios productos)
+   El botón de la barra activa/desactiva el modo. El carrito vive en memoria
+   Se guarda en el navegador (localStorage): sigue ahí aunque cierres la página,
+   y solo se vacía con "Vaciar carrito" o quitando productos con la ×.
+   ========================================================= */
+const CLAVE_CARRITO = "calculadora_carrito_v1";
+let modoCarrito = false;
+
+/** Lee el carrito guardado y descarta cualquier dato que no tenga sentido. */
+function cargarCarrito() {
+  if (!puedeGuardar) return [];
+  try {
+    const datos = JSON.parse(localStorage.getItem(CLAVE_CARRITO) || "[]");
+    if (!Array.isArray(datos)) return [];
+    const num = (v) => typeof v === "number" && Number.isFinite(v);
+    return datos
+      .filter((d) => d && typeof d.nombre === "string" && d.nombre &&
+        num(d.precio) && d.precio >= 0 && Number.isInteger(d.cantidad) && d.cantidad >= 1 &&
+        num(d.descuento) && d.descuento >= 0 && d.descuento <= 100 && num(d.peso) && d.peso > 0)
+      .slice(0, 100)
+      .map((d, i) => ({ ...d, id: i + 1 }));
+  } catch (e) { return []; }
+}
+
+function guardarCarrito() {
+  if (!puedeGuardar) return;
+  try { localStorage.setItem(CLAVE_CARRITO, JSON.stringify(carrito)); } catch (e) { /* sin espacio */ }
+}
+
+const carrito = cargarCarrito();
+let siguienteIdCarrito = carrito.length + 1;
+
+/** Calcula un renglón del carrito (precio × cantidad, con descuento, impuesto y peso). */
+function calcularLinea(it) {
+  const original = redondear(it.precio * it.cantidad);
+  const conDescuento = calcularDescuento(original, it.descuento);
+  const impuesto = calcularImpuesto(conDescuento);
+  const conImpuesto = redondear(conDescuento + impuesto);
+  const peso = redondear(it.peso * it.cantidad);
+  const costoPeso = calcularCostoPeso(peso);
+  const total = redondear(conImpuesto + costoPeso);
+  return { original, conDescuento, impuesto, conImpuesto, peso, costoPeso, total };
+}
+
+/** Dibuja la lista, los totales de todo el carrito y la insignia de la barra. */
+function pintarCarrito() {
+  const lista = $("listaCarrito");
+  lista.textContent = "";
+  const suma = { original: 0, conDescuento: 0, impuesto: 0, conImpuesto: 0, peso: 0, costoPeso: 0, total: 0 };
+
+  carrito.forEach((it) => {
+    const l = calcularLinea(it);
+    Object.keys(suma).forEach((k) => { suma[k] = redondear(suma[k] + l[k]); });
+
+    const li = document.createElement("li");
+    li.className = "cart-item";
+    const info = document.createElement("div");
+    info.className = "info";
+    const nombre = document.createElement("strong");
+    nombre.textContent = it.nombre;
+    const det = document.createElement("small");
+    det.textContent = `${it.cantidad} × ${usd.format(it.precio)}${it.conDescuento ? ", -" + it.descuento + "%" : ""}, ${l.peso} lb`;
+    info.append(nombre, det);
+    const tot = document.createElement("span");
+    tot.className = "sub-total";
+    tot.textContent = usd.format(l.total);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "cart-del";
+    del.textContent = "×";
+    del.setAttribute("aria-label", "Quitar " + it.nombre);
+    del.addEventListener("click", () => {
+      const i = carrito.findIndex((x) => x.id === it.id);
+      if (i >= 0) carrito.splice(i, 1);
+      guardarCarrito();
+      pintarCarrito();
+    });
+    li.append(info, tot, del);
+    lista.append(li);
+  });
+
+  const hay = carrito.length > 0;
+  $("notaCarrito").style.display = puedeGuardar ? "none" : "";
+  $("carritoVacio").style.display = hay ? "none" : "";
+  $("resumenCarrito").style.display = hay ? "" : "none";
+  $("btnVaciar").style.display = hay ? "" : "none";
+  const badge = $("cartCount");
+  badge.textContent = carrito.length;
+  badge.classList.toggle("show", hay);
+
+  $("c-original").textContent = usd.format(suma.original);
+  $("c-descontado").textContent = usd.format(suma.conDescuento);
+  $("c-impuesto").textContent = usd.format(suma.impuesto);
+  $("c-conImpuesto").textContent = usd.format(suma.conImpuesto);
+  $("c-peso").textContent = `${suma.peso} lb`;
+  $("c-costoPeso").textContent = usd.format(suma.costoPeso);
+  $("c-total").textContent = usd.format(suma.total);
+
+  // Total en CUP con la tasa que esté escrita en este momento
+  const tasa = leerDecimal($("tasa").value);
+  const conTasa = hay && Number.isFinite(tasa) && tasa > 0;
+  $("c-bloqueCUP").style.display = conTasa ? "" : "none";
+  if (conTasa) {
+    $("c-tasa").textContent = `1 USD = ${cup(tasa)}`;
+    $("c-total-cup").textContent = cup(redondear(suma.total * tasa));
+  }
+}
+
+function agregarAlCarrito(item) {
+  carrito.push({ id: siguienteIdCarrito++, ...item });
+  guardarCarrito();
+  pintarCarrito();
+  // Aviso con acceso rápido al carrito (en el celular queda debajo del formulario)
+  const av = $("avisoCarrito");
+  av.className = "weight-status show web";
+  av.textContent = "";
+  const msg = document.createElement("span");
+  msg.textContent = `Agregado: ${item.nombre}. `;
+  const ver = document.createElement("button");
+  ver.type = "button";
+  ver.className = "btn-link";
+  ver.textContent = "Ver carrito";
+  ver.addEventListener("click", () => $("tarjetaCarrito").scrollIntoView({ behavior: "smooth", block: "start" }));
+  av.append(msg, ver);
+}
+
+/** Deja el formulario listo para el siguiente producto (la tasa se conserva). */
+function vaciarCamposProducto() {
+  ["nombre", "precio", "descuento", "peso"].forEach((c) => { $(c).value = ""; });
+  $("cantidad").value = "1";
+  $("tieneDescuento").checked = false;
+  $("cajaDescuento").classList.remove("open");
+  ["nombre", "precio", "descuento", "peso", "cantidad"].forEach((c) => setError(c, ""));
+  $("alerta").classList.remove("show");
+  ocultarEstadoPeso();
+  pesoFuente = null;
+  $("nombre").focus();
+}
+
+/** Muestra u oculta lo que corresponde a cada modo. */
+function aplicarModo() {
+  $("btnCarrito").setAttribute("aria-pressed", String(modoCarrito));
+  $("titulo").textContent = modoCarrito ? "Calcula el costo total de varios artículos" : "Calcula el costo total de un artículo";
+  $("campoCantidad").style.display = modoCarrito ? "" : "none";
+  $("tarjetaCarrito").style.display = modoCarrito ? "" : "none";
+  $("tarjetaResultado").style.display = modoCarrito ? "none" : "";
+  $("tarjetaHistorial").style.display = modoCarrito ? "none" : "";
+  $("btnCalcular").textContent = modoCarrito ? "Agregar al carrito" : "Calcular total";
+  $("avisoCarrito").className = "weight-status";
+  ["nombre", "precio", "descuento", "peso", "tasa", "cantidad"].forEach((c) => setError(c, ""));
+  $("alerta").classList.remove("show");
+  pintarCarrito();
+}
+
+$("btnCarrito").addEventListener("click", () => { modoCarrito = !modoCarrito; aplicarModo(); });
+$("btnVaciar").addEventListener("click", () => { carrito.length = 0; guardarCarrito(); $("avisoCarrito").className = "weight-status"; pintarCarrito(); });
+$("tasa").addEventListener("input", pintarCarrito);   // el total en CUP sigue a la tasa escrita
+pintarCarrito();
+
+/* =========================================================
+   CATÁLOGO DE LA TIENDA: costo por libra, tasa del dólar y productos con peso fijo
+   - Los datos viven en un archivo (precios.json) de un repositorio público de GitHub.
+   - App Admin: edita los datos y los publica en ese archivo (con tu token de GitHub).
+   - App de clientes: lee el archivo al abrirse y guarda una copia por si no hay internet.
+   ========================================================= */
+const DATOS_REPO = "LuisARF04/calculadora-datos";   // usuario/repositorio donde está precios.json
+const DATOS_ARCHIVO = "precios.json";
+const DATOS_RAMA = "main";
+const DATOS_URL = `https://raw.githubusercontent.com/${DATOS_REPO}/${DATOS_RAMA}/${DATOS_ARCHIVO}`;
+const CLAVE_CATALOGO = "calculadora_catalogo_v1";
+const CLAVE_PENDIENTE = "calculadora_pendiente_v1";
+const CLAVE_TOKEN_GH = "calculadora_gh_token_v1";
+
+let catalogo = { version: 1, costoPorLibra: CONFIG.COSTO_POR_LIBRA, tasaCUP: null, productos: [], actualizado: null };
+let hayCambiosSinPublicar = false;
+let ultimaSincronizacion = 0;
+
+const leerLocal = (k) => { if (!puedeGuardar) return null; try { return localStorage.getItem(k); } catch (e) { return null; } };
+const escribirLocal = (k, v) => { if (!puedeGuardar) return; try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* sin espacio */ } };
+const fechaCorta = (iso) => new Date(iso).toLocaleString("es", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+/** Comprueba y limpia los datos recibidos. Devuelve null si no sirven. */
+function validarCatalogo(o) {
+  if (!o || typeof o !== "object") return null;
+  const costo = Number(o.costoPorLibra);
+  const tasa = o.tasaCUP === null || o.tasaCUP === undefined ? null : Number(o.tasaCUP);
+  if (!Number.isFinite(costo) || costo < 0 || costo > 1000) return null;
+  if (tasa !== null && (!Number.isFinite(tasa) || tasa <= 0)) return null;
+  const productos = (Array.isArray(o.productos) ? o.productos : [])
+    .filter((p) => p && typeof p.nombre === "string" && p.nombre.trim() && Number.isFinite(Number(p.libras)) && Number(p.libras) > 0 && Number(p.libras) <= 1000)
+    .slice(0, 500)
+    .map((p) => ({ nombre: p.nombre.trim().slice(0, 80), libras: redondear(Number(p.libras)) }));
+  return { version: 1, costoPorLibra: costo, tasaCUP: tasa, productos, actualizado: typeof o.actualizado === "string" ? o.actualizado : null };
+}
+
+/**
+ * Busca entre los productos de la tienda:
+ *  1) todas las palabras del producto aparecen en lo escrito (gana el más específico), o
+ *  2) lo escrito es parte del nombre de UN solo producto (si es una palabra suelta de la tabla, como "ventilador", no cuenta).
+ */
+function buscarProductoTienda(texto) {
+  const t = new Set(palabrasClave(texto));
+  if (!t.size || !catalogo.productos.length) return null;
+  let mejor = null;
+  for (const p of catalogo.productos) {
+    const pk = palabrasClave(p.nombre);
+    if (pk.length && pk.every((w) => t.has(w)) && (!mejor || pk.length > mejor.n)) mejor = { p, n: pk.length };
+  }
+  if (mejor) return mejor.p;
+  if (t.size === 1) {
+    const w = [...t][0];
+    if (ENTRADAS_TABLA.some((e) => e.palabras.length === 1 && e.palabras[0] === w)) return null;
+  }
+  const parciales = catalogo.productos.filter((p) => { const pk = new Set(palabrasClave(p.nombre)); return [...t].every((w) => pk.has(w)); });
+  return parciales.length === 1 ? parciales[0] : null;
+}
+
+/** Aplica el catálogo a la app: costo por libra, tasa del campo y texto informativo. */
+function aplicarCatalogo(conTasa) {
+  CONFIG.COSTO_POR_LIBRA = catalogo.costoPorLibra;
+  if (conTasa && catalogo.tasaCUP) $("tasa").value = catalogo.tasaCUP;
+  $("estadoDatos").textContent = catalogo.actualizado
+    ? `Precios de la tienda actualizados el ${fechaCorta(catalogo.actualizado)}.`
+    : "Opcional: si la escribes, se muestra el total también en CUP.";
+  pintarCarrito();
+}
+
+function guardarCatalogoLocal() {
+  escribirLocal(CLAVE_CATALOGO, JSON.stringify(catalogo));
+  escribirLocal(CLAVE_PENDIENTE, hayCambiosSinPublicar ? "1" : null);
+}
+
+/** App de clientes: descarga el archivo publicado. Sin internet, se quedan los últimos datos. */
+async function sincronizarCatalogo() {
+  ultimaSincronizacion = Date.now();
+  try {
+    const res = await fetch(`${DATOS_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: "no-store" });
+    if (res.status === 404) return;                       // todavía no se ha publicado nada
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const nuevo = validarCatalogo(await res.json());
+    if (!nuevo) return;
+    const cambio = nuevo.actualizado !== catalogo.actualizado;
+    catalogo = nuevo;
+    guardarCatalogoLocal();
+    aplicarCatalogo(cambio);
+  } catch (e) {
+    // sin conexión o bloqueo: se siguen usando los datos guardados
+  }
+}
+
+/* ---------- Panel de administración (solo app Admin) ---------- */
+
+function estadoPub(tipo, mensaje) {
+  const el = $("estadoPublicacion");
+  el.className = "weight-status show " + tipo;
+  el.innerHTML = tipo === "loading" ? `<span class="spinner"></span><span></span>` : "<span></span>";
+  el.lastElementChild.textContent = mensaje;
+}
+function pintarEstadoPublicacion() {
+  if (hayCambiosSinPublicar) estadoPub("table", "Hay cambios sin publicar.");
+  else if (catalogo.actualizado) estadoPub("web", `Publicado el ${fechaCorta(catalogo.actualizado)}.`);
+  else estadoPub("manual", "Todavía no has publicado nada.");
+}
+
+function pintarProductosAdmin() {
+  const lista = $("listaProductos");
+  lista.textContent = "";
+  $("productosVacio").style.display = catalogo.productos.length ? "none" : "";
+  catalogo.productos.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.className = "prod-item";
+    const n = document.createElement("span"); n.className = "n"; n.textContent = p.nombre;
+    const l = document.createElement("span"); l.className = "l"; l.textContent = `${p.libras} lb`;
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "cart-del"; del.textContent = "×";
+    del.setAttribute("aria-label", "Quitar " + p.nombre);
+    del.addEventListener("click", () => {
+      catalogo.productos.splice(i, 1);
+      hayCambiosSinPublicar = true; guardarCatalogoLocal();
+      pintarProductosAdmin(); pintarEstadoPublicacion();
+    });
+    li.append(n, l, del);
+    lista.append(li);
+  });
+}
+
+function abrirAjustes() {
+  $("aj-costo").value = catalogo.costoPorLibra;
+  $("aj-tasa").value = catalogo.tasaCUP || "";
+  $("aj-token").value = "";
+  $("notaToken").textContent = leerLocal(CLAVE_TOKEN_GH)
+    ? `Token guardado en este teléfono. Repositorio: ${DATOS_REPO}`
+    : `Se guarda solo en este teléfono. Repositorio: ${DATOS_REPO}`;
+  ["aj-costo", "aj-tasa"].forEach((c) => setError(c, ""));
+  $("err-ap").textContent = "";
+  pintarProductosAdmin();
+  pintarEstadoPublicacion();
+  $("modalAjustes").hidden = false;
+  $("modalAjustes").querySelector(".card").scrollTop = 0;
+}
+function cerrarAjustes() { $("modalAjustes").hidden = true; }
+
+/** Valida costo y tasa y los pasa al catálogo (todavía sin publicar). */
+function guardarPrecios() {
+  const costo = leerDecimal($("aj-costo").value);
+  const tasaTxt = $("aj-tasa").value.trim();
+  const tasa = tasaTxt === "" ? null : leerDecimal(tasaTxt);
+  setError("aj-costo", ""); setError("aj-tasa", "");
+  let ok = true;
+  if (!Number.isFinite(costo) || costo < 0) { setError("aj-costo", "Escribe un número (0 o mayor)."); ok = false; }
+  if (tasa !== null && (!Number.isFinite(tasa) || tasa <= 0)) { setError("aj-tasa", "La tasa debe ser un número mayor que 0."); ok = false; }
+  if (!ok) return false;
+  if (costo !== catalogo.costoPorLibra || tasa !== catalogo.tasaCUP) hayCambiosSinPublicar = true;
+  catalogo.costoPorLibra = costo;
+  catalogo.tasaCUP = tasa;
+  $("tasa").value = tasa || "";
+  guardarCatalogoLocal();
+  aplicarCatalogo(false);
+  return true;
+}
+
+function agregarProducto() {
+  const nombre = $("ap-nombre").value.trim();
+  const libras = leerDecimal($("ap-libras").value);
+  const err = $("err-ap");
+  err.textContent = "";
+  if (!nombre) { err.textContent = "Escribe el nombre del producto."; return; }
+  if (nombre.length > 80) { err.textContent = "El nombre es demasiado largo."; return; }
+  if (!Number.isFinite(libras) || libras <= 0 || libras > 1000) { err.textContent = "Las libras deben ser un número mayor que 0."; return; }
+  const clave = palabrasClave(nombre).join(" ");
+  const i = catalogo.productos.findIndex((p) => palabrasClave(p.nombre).join(" ") === clave);
+  const item = { nombre, libras: redondear(libras) };
+  if (i >= 0) catalogo.productos[i] = item; else catalogo.productos.push(item);   // mismo nombre = se actualiza
+  hayCambiosSinPublicar = true;
+  guardarCatalogoLocal();
+  $("ap-nombre").value = ""; $("ap-libras").value = "";
+  pintarProductosAdmin(); pintarEstadoPublicacion();
+  $("ap-nombre").focus();
+}
+
+const aBase64 = (texto) => { let bin = ""; new TextEncoder().encode(texto).forEach((b) => { bin += String.fromCharCode(b); }); return btoa(bin); };
+
+function errorGitHub(status, alEscribir) {
+  if (status === 401) return "El token no es válido o ya venció.";
+  if (status === 403) return "El token no tiene permiso. Debe tener Contents: Read and write.";
+  if (status === 404) return alEscribir
+    ? "No se encontró el repositorio o el token no tiene acceso a él. Revisa el nombre y que el repositorio tenga un README."
+    : "No se pudo leer el repositorio.";
+  return "GitHub respondió con el error " + status + ".";
+}
+
+/** Sube el catálogo a GitHub (crea o reemplaza precios.json). */
+async function publicar() {
+  if (!guardarPrecios()) return;
+  const tokenNuevo = $("aj-token").value.trim();
+  const token = tokenNuevo || leerLocal(CLAVE_TOKEN_GH);
+  if (!token) { estadoPub("err", "Pega tu token de GitHub para poder publicar."); return; }
+
+  const boton = $("btnPublicar");
+  boton.disabled = true;
+  estadoPub("loading", "Publicando…");
+  const url = `https://api.github.com/repos/${DATOS_REPO}/contents/${DATOS_ARCHIVO}`;
+  const cab = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  const publicado = { ...catalogo, actualizado: new Date().toISOString() };
+  const contenido = aBase64(JSON.stringify(publicado, null, 2) + "\n");
+  try {
+    let hecho = false;
+    for (let intento = 0; intento < 2 && !hecho; intento++) {
+      let sha = null;
+      const g = await fetch(`${url}?ref=${DATOS_RAMA}`, { headers: cab, cache: "no-store" });
+      if (g.status === 200) sha = (await g.json()).sha;
+      else if (g.status !== 404) throw new Error(errorGitHub(g.status, false));
+      const p = await fetch(url, {
+        method: "PUT",
+        headers: { ...cab, "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Actualizar precios", content: contenido, branch: DATOS_RAMA, ...(sha ? { sha } : {}) })
+      });
+      if (p.ok) hecho = true;
+      else if ((p.status === 409 || p.status === 422) && intento === 0) continue;   // alguien cambió el archivo: se reintenta
+      else throw new Error(errorGitHub(p.status, true));
+    }
+    if (!hecho) throw new Error("No se pudo publicar. Inténtalo de nuevo.");
+    if (tokenNuevo) escribirLocal(CLAVE_TOKEN_GH, tokenNuevo);
+    catalogo = publicado;
+    hayCambiosSinPublicar = false;
+    guardarCatalogoLocal();
+    aplicarCatalogo(false);
+    $("aj-token").value = "";
+    estadoPub("web", "Publicado. Las apps de tus clientes lo verán en unos minutos.");
+  } catch (e) {
+    estadoPub("err", e instanceof TypeError ? "No hay conexión con GitHub. Revisa tu internet." : e.message);
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+/** Descarga lo que está publicado y lo pone como borrador (descarta cambios sin publicar). */
+async function traerPublicado() {
+  estadoPub("loading", "Descargando lo publicado…");
+  try {
+    const res = await fetch(`${DATOS_URL}?t=${Date.now()}`, { cache: "no-store" });
+    if (res.status === 404) { estadoPub("manual", "Todavía no hay nada publicado."); return; }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const nuevo = validarCatalogo(await res.json());
+    if (!nuevo) { estadoPub("err", "El archivo publicado no tiene un formato válido."); return; }
+    catalogo = nuevo;
+    hayCambiosSinPublicar = false;
+    guardarCatalogoLocal();
+    aplicarCatalogo(true);
+    $("aj-costo").value = catalogo.costoPorLibra;
+    $("aj-tasa").value = catalogo.tasaCUP || "";
+    pintarProductosAdmin(); pintarEstadoPublicacion();
+  } catch (e) {
+    estadoPub("err", "No se pudo descargar. Revisa tu conexión.");
+  }
+}
+
+/* ---------- Arranque ---------- */
+(function iniciarCatalogo() {
+  let local = null;
+  try { local = validarCatalogo(JSON.parse(leerLocal(CLAVE_CATALOGO) || "null")); } catch (e) { /* datos dañados */ }
+  if (local) catalogo = local;
+  hayCambiosSinPublicar = leerLocal(CLAVE_PENDIENTE) === "1";
+  aplicarCatalogo(true);
+
+  if (MODO_ADMIN) {
+    document.title = "Calculadora Admin";
+    $("tituloApp").textContent = "Calculadora Admin";
+    document.querySelector(".logo").style.background = "#0f172a";
+    $("btnAjustes").addEventListener("click", abrirAjustes);
+    $("btnPublicar").addEventListener("click", publicar);
+    $("btnAjGuardar").addEventListener("click", () => { if (guardarPrecios()) { pintarEstadoPublicacion(); estadoPub("table", "Guardado en este teléfono. Falta publicar."); } });
+    $("btnAjTraer").addEventListener("click", traerPublicado);
+    $("btnAjCancelar").addEventListener("click", cerrarAjustes);
+    $("btnAgregarProducto").addEventListener("click", agregarProducto);
+    $("modalAjustes").addEventListener("click", (e) => { if (e.target === $("modalAjustes")) cerrarAjustes(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("modalAjustes").hidden) cerrarAjustes(); });
+    ["ap-nombre", "ap-libras"].forEach((id) => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); agregarProducto(); } }));
+    if (!local) traerPublicado();       // primera vez: se parte de lo que ya esté publicado
+  } else {
+    $("btnAjustes").style.display = "none";      // los clientes no pueden cambiar precios
+    $("modalAjustes").remove();
+    sincronizarCatalogo();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && Date.now() - ultimaSincronizacion > 60000) sincronizarCatalogo();
+    });
+  }
+})();
+
+// Enter en cualquier campo también calcula
+["nombre", "precio", "descuento", "peso", "tasa", "cantidad"].forEach((id) =>
+  $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); calcular(); } })
+);
+
+// Limpiar todo
+$("btnLimpiar").addEventListener("click", () => {
+  ["nombre", "precio", "descuento", "peso"].forEach((c) => { $(c).value = ""; });
+  $("cantidad").value = "1";
+  $("avisoCarrito").className = "weight-status";
+  $("tieneDescuento").checked = false;
+  $("cajaDescuento").classList.remove("open");
+  ["nombre", "precio", "descuento", "peso", "cantidad"].forEach((c) => setError(c, ""));
+  $("alerta").classList.remove("show");
+  ocultarEstadoPeso();
+  pesoFuente = null;
+  $("resultado").classList.remove("show");
+  $("vacio").style.display = "";
+  $("nombre").focus();
+});
+
+/* =========================================================
+   APP INSTALABLE: registra el service worker (solo funciona por http/https)
+   ========================================================= */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !window.Capacitor) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* la app funciona igual sin esto */ });
+  });
+}
+</script>
+</body>
+</html>
