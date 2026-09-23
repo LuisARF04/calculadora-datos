@@ -1,0 +1,46 @@
+name: Crear APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: APK de clientes
+        run: bash construir.sh usuario
+
+      - name: APK de administrador
+        run: bash construir.sh admin
+
+      - name: Guardar copia de los APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks
+          path: |
+            Calculadora.apk
+            Calculadora-Admin.apk
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "apk-${{ github.run_number }}" Calculadora.apk Calculadora-Admin.apk \
+            --title "APK ${{ github.run_number }}" \
+            --notes "Calculadora.apk es para tus clientes. Calculadora-Admin.apk es solo para ti."
