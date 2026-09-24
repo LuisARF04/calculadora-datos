@@ -46,6 +46,51 @@ npm install --no-audit --no-fund
 npx cap add android
 npx cap sync android
 
+# 3.5) Reforzar seguridad (para que Play Protect no marque la app como sospechosa)
+#      - Solo tráfico HTTPS (nada de texto plano), ni siquiera si algo lo pidiera.
+#      - Sin copias de seguridad automáticas del contenido de la app (evita fugas de datos).
+echo "=== Reforzando seguridad ==="
+MANIFEST="android/app/src/main/AndroidManifest.xml"
+if [ ! -f "$MANIFEST" ]; then
+  echo "Aviso: no se encontró $MANIFEST; se omite el refuerzo de seguridad"
+else
+mkdir -p android/app/src/main/res/xml
+cat > android/app/src/main/res/xml/network_security_config.xml <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
+XML
+python3 - "$MANIFEST" <<'PY'
+import re, sys
+path = sys.argv[1]
+xml = open(path, encoding="utf-8").read()
+m = re.search(r"<application\b[^>]*>", xml, re.S)
+if m:
+    tag = m.group(0)
+    nuevo = tag
+    for attr, valor in (
+        ("android:usesCleartextTraffic", "false"),
+        ("android:allowBackup", "false"),
+        ("android:networkSecurityConfig", "@xml/network_security_config"),
+    ):
+        patron = re.compile(re.escape(attr) + r'="[^"]*"')
+        if patron.search(nuevo):
+            nuevo = patron.sub(f'{attr}="{valor}"', nuevo)   # ya estaba: se corrige su valor
+        else:
+            nuevo = nuevo[:-1].rstrip() + f' {attr}="{valor}">'   # no estaba: se agrega
+    xml = xml[: m.start()] + nuevo + xml[m.end() :]
+    open(path, "w", encoding="utf-8").write(xml)
+    print("AndroidManifest reforzado")
+else:
+    print("Aviso: no se encontro <application> en el manifest; se omite el refuerzo")
+PY
+fi
+
 # 4) Íconos (si algo falla se usa el ícono por defecto y la compilación sigue)
 cp "$ICONO" assets/icon-only.png
 cp app-icon-foreground.png assets/icon-foreground.png
@@ -70,7 +115,7 @@ fi
 ( cd android
   yes | sdkmanager --licenses > /dev/null || true
   sed -i "s/versionCode 1\$/versionCode ${GITHUB_RUN_NUMBER:-1}/" app/build.gradle || true
-  sed -i 's/versionName "1.0"/versionName "1.1"/' app/build.gradle || true
+  sed -i 's/versionName "1.0"/versionName "1.2"/' app/build.gradle || true
   chmod +x gradlew
   ./gradlew assembleRelease --no-daemon )
 

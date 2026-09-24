@@ -216,6 +216,24 @@
     .discount-box { display: none; }
     .discount-box.open { display: block; }
 
+    /* Fila del peso + botón de guardar en la tabla (solo Admin) */
+    .peso-row { display: flex; gap: 8px; align-items: flex-start; }
+    .peso-row .input-wrap { flex: 1; min-width: 0; }
+    .btn-icon {
+      flex: none; width: 46px; height: 46px; border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border); background: #fff; color: var(--text-muted);
+      display: grid; place-items: center; cursor: pointer;
+      transition: background .2s, color .2s, border-color .2s, transform .15s;
+    }
+    .btn-icon:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+    .btn-icon:active { transform: scale(.94); }
+    .btn-icon:focus-visible { outline: 3px solid rgba(37,99,235,.4); outline-offset: 2px; }
+
+    /* Ganancia por reventa */
+    .ganancia-roja { color: var(--danger); }
+    .ganancia-naranja { color: var(--warning); }
+    .ganancia-verde { color: var(--success); }
+
     /* Estado del peso (buscado / manual / tabla) */
     .weight-status {
       display: none; align-items: center; gap: 8px; margin-top: 8px;
@@ -418,14 +436,31 @@
             <div class="error-msg" id="err-descuento"></div>
           </div>
 
+          <!-- Precio de la libra (solo en la app Admin): se usa para el costo por peso -->
+          <div class="field" id="campoLibraAdmin" style="display:none">
+            <label for="admLibra">Precio de la libra (USD)</label>
+            <div class="input-wrap has-prefix">
+              <span class="affix prefix">$</span>
+              <input type="text" id="admLibra" inputmode="decimal" autocomplete="off" placeholder="4" />
+            </div>
+            <div class="hint">Se usa para calcular el costo por peso, aquí y en el catálogo.</div>
+            <div class="error-msg" id="err-admLibra"></div>
+          </div>
+
           <!-- Peso -->
           <div class="field">
             <label for="peso">Peso en libras (lb)</label>
-            <div class="input-wrap has-suffix">
-              <input type="text" id="peso" inputmode="decimal" autocomplete="off" placeholder="Si lo dejas vacío, se busca" />
-              <span class="affix suffix">lb</span>
+            <div class="peso-row">
+              <div class="input-wrap has-suffix">
+                <input type="text" id="peso" inputmode="decimal" autocomplete="off" placeholder="Si lo dejas vacío, se busca" />
+                <span class="affix suffix">lb</span>
+              </div>
+              <button type="button" class="btn-icon" id="btnGuardarPeso" title="Guardar en la tabla de pesos" aria-label="Guardar este artículo en la tabla de pesos" style="display:none">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              </button>
             </div>
             <div class="weight-status" id="estadoPeso" aria-live="polite"></div>
+            <div class="weight-status" id="avisoGuardarPeso" aria-live="polite"></div>
             <div class="hint">
               ¿Prefieres verlo antes de calcular?
               <button type="button" class="btn-link" id="btnBuscar">Buscar peso ahora</button>
@@ -481,6 +516,23 @@
               <span class="k">Total final en CUP</span>
               <span class="v" id="c-total-cup"></span>
             </div>
+
+            <div class="switch-row" style="margin:14px 0 0">
+              <div><div class="t">¿Es para reventa?</div></div>
+              <label class="switch" aria-label="Es para reventa">
+                <input type="checkbox" id="c-reventa" />
+                <span class="track"></span>
+              </label>
+            </div>
+            <div class="field" id="c-cajaReventa" style="display:none; margin:12px 0 0">
+              <label for="c-precioVenta">Precio de venta (CUP)</label>
+              <input type="text" id="c-precioVenta" inputmode="decimal" autocomplete="off" placeholder="Ej.: 40000" />
+              <div class="error-msg" id="err-c-precioVenta"></div>
+            </div>
+            <div class="line" id="c-lineaGanancia" style="display:none">
+              <span class="k">Ganancia</span>
+              <span class="v" id="c-ganancia"></span>
+            </div>
           </div>
         </div>
       </section>
@@ -518,6 +570,23 @@
             <div class="total">
               <span class="k">Total final en CUP</span>
               <span class="v" id="r-total-cup"></span>
+            </div>
+
+            <div class="switch-row" style="margin:14px 0 0">
+              <div><div class="t">¿Es para reventa?</div></div>
+              <label class="switch" aria-label="Es para reventa">
+                <input type="checkbox" id="r-reventa" />
+                <span class="track"></span>
+              </label>
+            </div>
+            <div class="field" id="r-cajaReventa" style="display:none; margin:12px 0 0">
+              <label for="r-precioVenta">Precio de venta (CUP)</label>
+              <input type="text" id="r-precioVenta" inputmode="decimal" autocomplete="off" placeholder="Ej.: 40000" />
+              <div class="error-msg" id="err-r-precioVenta"></div>
+            </div>
+            <div class="line" id="r-lineaGanancia" style="display:none">
+              <span class="k">Ganancia</span>
+              <span class="v" id="r-ganancia"></span>
             </div>
           </div>
         </div>
@@ -682,6 +751,49 @@ const ENTRADAS_TABLA = Object.entries(TABLA_PESOS).map(([clave, peso]) => ({ cla
 const $ = (id) => document.getElementById(id);
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const cup = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n) + " CUP";
+const numCUP = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);   // sin "CUP": la etiqueta ya lo dice
+let costoCUPActual = null;          // del último cálculo individual mostrado (para la ganancia)
+let costoCUPCarritoActual = null;   // del carrito (para la ganancia)
+
+/** Ganancia por reventa: precio de venta menos el costo total en CUP. */
+function calcularGanancia(costoCUP, precioVenta) {
+  const ganancia = redondear(precioVenta - costoCUP);
+  const porcentaje = redondear((ganancia / costoCUP) * 100);
+  return { ganancia, porcentaje };
+}
+
+/** Pinta la línea de ganancia de "r" (producto) o "c" (carrito) según el costo en CUP vigente. */
+function pintarGanancia(prefijo, costoCUP) {
+  const caja = $(`${prefijo}-cajaReventa`);
+  const linea = $(`${prefijo}-lineaGanancia`);
+  const err = $(`err-${prefijo}-precioVenta`);
+  const activo = $(`${prefijo}-reventa`).checked && Number.isFinite(costoCUP) && costoCUP > 0;
+  caja.style.display = activo ? "" : "none";
+  if (!activo) { linea.style.display = "none"; err.textContent = ""; return; }
+
+  const txt = $(`${prefijo}-precioVenta`).value.trim();
+  err.textContent = "";
+  if (txt === "") { linea.style.display = "none"; return; }
+  const precioVenta = leerDecimal(txt);
+  if (!Number.isFinite(precioVenta) || precioVenta <= 0) {
+    err.textContent = "Escribe un precio de venta mayor que 0.";
+    linea.style.display = "none";
+    return;
+  }
+  const { ganancia, porcentaje } = calcularGanancia(costoCUP, precioVenta);
+  const val = $(`${prefijo}-ganancia`);
+  val.textContent = `${numCUP(ganancia)} CUP (${porcentaje}%)`;
+  val.className = "v " + (porcentaje < 30 ? "ganancia-roja" : porcentaje < 60 ? "ganancia-naranja" : "ganancia-verde");
+  linea.style.display = "";
+}
+
+["r", "c"].forEach((pfx) => {
+  const repintar = () => pintarGanancia(pfx, pfx === "r" ? costoCUPActual : costoCUPCarritoActual);
+  $(`${pfx}-reventa`).addEventListener("change", repintar);
+  $(`${pfx}-precioVenta`).addEventListener("input", repintar);
+  $(`${pfx}-precioVenta`).addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+});
+
 const redondear = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /** Minúsculas y sin acentos, para comparar texto. */
@@ -1013,11 +1125,13 @@ function actualizarResultados(d) {
   const bloqueCUP = $("bloqueCUP");
   if (d.totalCUP) {
     $("r-tasa").textContent = `1 USD = ${cup(d.tasa)}`;
-    $("r-total-cup").textContent = cup(d.totalCUP);
+    $("r-total-cup").textContent = numCUP(d.totalCUP);
     bloqueCUP.style.display = "";
   } else {
     bloqueCUP.style.display = "none";
   }
+  costoCUPActual = d.totalCUP || null;
+  pintarGanancia("r", costoCUPActual);
 
   $("vacio").style.display = "none";
   const res = $("resultado");
@@ -1287,10 +1401,12 @@ function pintarCarrito() {
   const tasa = leerDecimal($("tasa").value);
   const conTasa = hay && Number.isFinite(tasa) && tasa > 0;
   $("c-bloqueCUP").style.display = conTasa ? "" : "none";
+  costoCUPCarritoActual = conTasa ? redondear(suma.total * tasa) : null;
   if (conTasa) {
     $("c-tasa").textContent = `1 USD = ${cup(tasa)}`;
-    $("c-total-cup").textContent = cup(redondear(suma.total * tasa));
+    $("c-total-cup").textContent = numCUP(costoCUPCarritoActual);
   }
+  pintarGanancia("c", costoCUPCarritoActual);
 }
 
 function agregarAlCarrito(item) {
@@ -1416,6 +1532,7 @@ function buscarProductoTienda(texto) {
 /** Aplica el catálogo a la app: costo por libra, tasa del campo y texto informativo. */
 function aplicarCatalogo(conTasa) {
   CONFIG.COSTO_POR_LIBRA = catalogo.costoPorLibra;
+  $("admLibra").value = catalogo.costoPorLibra;
   if (conTasa && catalogo.tasaCUP) $("tasa").value = catalogo.tasaCUP;
   $("estadoDatos").textContent = catalogo.actualizado
     ? `Precios de la tienda actualizados el ${fechaCorta(catalogo.actualizado)}.`
@@ -1517,6 +1634,16 @@ function guardarPrecios() {
   return true;
 }
 
+/** Da de alta o actualiza (por nombre) un producto con su peso en el catálogo. No publica todavía. */
+function guardarProductoEnCatalogo(nombre, libras) {
+  const clave = palabrasClave(nombre).join(" ");
+  const i = catalogo.productos.findIndex((p) => palabrasClave(p.nombre).join(" ") === clave);
+  const item = { nombre, libras: redondear(libras) };
+  if (i >= 0) catalogo.productos[i] = item; else catalogo.productos.push(item);   // mismo nombre = se actualiza
+  hayCambiosSinPublicar = true;
+  guardarCatalogoLocal();
+}
+
 function agregarProducto() {
   const nombre = $("ap-nombre").value.trim();
   const libras = leerDecimal($("ap-libras").value);
@@ -1525,15 +1652,49 @@ function agregarProducto() {
   if (!nombre) { err.textContent = "Escribe el nombre del producto."; return; }
   if (nombre.length > 80) { err.textContent = "El nombre es demasiado largo."; return; }
   if (!Number.isFinite(libras) || libras <= 0 || libras > 1000) { err.textContent = "Las libras deben ser un número mayor que 0."; return; }
-  const clave = palabrasClave(nombre).join(" ");
-  const i = catalogo.productos.findIndex((p) => palabrasClave(p.nombre).join(" ") === clave);
-  const item = { nombre, libras: redondear(libras) };
-  if (i >= 0) catalogo.productos[i] = item; else catalogo.productos.push(item);   // mismo nombre = se actualiza
-  hayCambiosSinPublicar = true;
-  guardarCatalogoLocal();
+  guardarProductoEnCatalogo(nombre, libras);
   $("ap-nombre").value = ""; $("ap-libras").value = "";
   pintarProductosAdmin(); pintarEstadoPublicacion();
   $("ap-nombre").focus();
+}
+
+/** Botón de guardar junto al peso: toma el nombre y el peso ya escritos en la calculadora. */
+function guardarPesoDesdeCalculadora() {
+  const nombre = $("nombre").value.trim();
+  const libras = leerDecimal($("peso").value);
+  const aviso = $("avisoGuardarPeso");
+  if (!nombre) {
+    aviso.className = "weight-status show err";
+    aviso.textContent = "Escribe primero el nombre del artículo.";
+    $("nombre").focus();
+    return;
+  }
+  if (!Number.isFinite(libras) || libras <= 0 || libras > 1000) {
+    aviso.className = "weight-status show err";
+    aviso.textContent = "Escribe primero un peso válido (mayor que 0).";
+    $("peso").focus();
+    return;
+  }
+  guardarProductoEnCatalogo(nombre, libras);
+  if ($("modalAjustes") && !$("modalAjustes").hidden) { pintarProductosAdmin(); pintarEstadoPublicacion(); }
+  aviso.className = "weight-status show manual";
+  aviso.textContent = `Guardado en la tabla de pesos: “${nombre}” = ${redondear(libras)} lb. Falta publicar.`;
+}
+
+/** Cambia el costo por libra desde la página principal (solo Admin) y refresca el carrito. */
+function actualizarCostoDesdePrincipal() {
+  const txt = $("admLibra").value;
+  setError("admLibra", "");
+  if (txt.trim() === "") return;
+  const v = leerDecimal(txt);
+  if (!Number.isFinite(v) || v < 0) { setError("admLibra", "Escribe un número (0 o mayor)."); return; }
+  if (v !== catalogo.costoPorLibra) hayCambiosSinPublicar = true;
+  catalogo.costoPorLibra = v;
+  CONFIG.COSTO_POR_LIBRA = v;
+  guardarCatalogoLocal();
+  $("aj-costo").value = v;       // mantiene sincronizado el panel de ajustes
+  pintarCarrito();               // refresca el carrito con el nuevo costo
+  if (!$("modalAjustes").hidden) pintarEstadoPublicacion();
 }
 
 const aBase64 = (texto) => { let bin = ""; new TextEncoder().encode(texto).forEach((b) => { bin += String.fromCharCode(b); }); return btoa(bin); };
@@ -1634,6 +1795,15 @@ async function traerPublicado() {
     $("modalAjustes").addEventListener("click", (e) => { if (e.target === $("modalAjustes")) cerrarAjustes(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("modalAjustes").hidden) cerrarAjustes(); });
     ["ap-nombre", "ap-libras"].forEach((id) => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); agregarProducto(); } }));
+
+    // Precio de la libra y guardar peso, directo en la página principal
+    $("campoLibraAdmin").style.display = "";
+    $("admLibra").value = catalogo.costoPorLibra;
+    $("admLibra").addEventListener("input", actualizarCostoDesdePrincipal);
+    $("admLibra").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+    $("btnGuardarPeso").style.display = "";
+    $("btnGuardarPeso").addEventListener("click", guardarPesoDesdeCalculadora);
+
     if (!local) traerPublicado();       // primera vez: se parte de lo que ya esté publicado
   } else {
     $("btnAjustes").style.display = "none";      // los clientes no pueden cambiar precios
