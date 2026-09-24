@@ -1,12 +1,12 @@
 {
   "version": 1,
   "costoPorLibra": 4,
-  "tasaCUP": 715,
+  "tasaCUP": 720,
   "productos": [
     {
       "nombre": "Ventilador coldsky",
       "libras": 3.2
     }
   ],
-  "actualizado": "2026-09-23T14:29:56.700Z"
+  "actualizado": "2026-09-24T02:39:23.734Z"
 }
