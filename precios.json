@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "costoPorLibra": 3.9,
+  "costoPorLibra": 4.5,
   "tasaCUP": 720,
   "productos": [
     {
@@ -16,5 +16,5 @@
       "libras": 3
     }
   ],
-  "actualizado": "2026-09-25T00:31:55.716Z"
+  "actualizado": "2026-09-25T00:32:07.338Z"
 }
