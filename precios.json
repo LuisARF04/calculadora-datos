@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "costoPorLibra": 4,
+  "costoPorLibra": 3.9,
   "tasaCUP": 720,
   "productos": [
     {
@@ -10,7 +10,11 @@
     {
       "nombre": "Billetera",
       "libras": 0.1
+    },
+    {
+      "nombre": "Sartén Eléctrico DEZIN",
+      "libras": 3
     }
   ],
-  "actualizado": "2026-09-24T02:44:46.006Z"
+  "actualizado": "2026-09-25T00:31:55.716Z"
 }
